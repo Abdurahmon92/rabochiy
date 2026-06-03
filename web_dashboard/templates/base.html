@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}IBKR Trading Bot{% endblock %}</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Custom CSS -->
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet"/>
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════ -->
+<div class="wrapper">
+  <nav id="sidebar">
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <i class="bi bi-robot"></i>
+      </div>
+      <div class="logo-text">
+        <span class="logo-title">IBKR Bot</span>
+        <span class="logo-sub">Trading Dashboard</span>
+      </div>
+    </div>
+
+    <!-- Bot holati -->
+    <div class="bot-status-badge mx-3 mb-3" id="botStatusBadge">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Yuklanmoqda...</span>
+    </div>
+
+    <!-- Menyu -->
+    <ul class="sidebar-menu">
+      <li class="menu-label">Asosiy</li>
+      <li class="{{ 'active' if active == 'dashboard' }}">
+        <a href="{{ url_for('dashboard') }}">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="{{ 'active' if active == 'trades' }}">
+        <a href="{{ url_for('trades') }}">
+          <i class="bi bi-clock-history"></i>
+          <span>Savdolar</span>
+        </a>
+      </li>
+      <li class="{{ 'active' if active == 'chart' }}">
+        <a href="{{ url_for('chart') }}">
+          <i class="bi bi-graph-up-arrow"></i>
+          <span>Grafik</span>
+        </a>
+      </li>
+
+      <li class="menu-label">Boshqaruv</li>
+      <li class="{{ 'active' if active == 'settings' }}">
+        <a href="{{ url_for('settings') }}">
+          <i class="bi bi-gear-fill"></i>
+          <span>Sozlamalar</span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- Bot boshqaruv tugmalari -->
+    <div class="sidebar-controls mx-3 mt-auto">
+      <button class="btn btn-success w-100 mb-2" id="startBtn" onclick="startBot()">
+        <i class="bi bi-play-fill"></i> Botni Ishga Tushir
+      </button>
+      <button class="btn btn-danger w-100" id="stopBtn" onclick="stopBot()" style="display:none;">
+        <i class="bi bi-stop-fill"></i> Botni To'xtat
+      </button>
+      <div class="text-center mt-2">
+        <small class="text-muted" id="botUptime"></small>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════
+       ASOSIY KONTENT
+  ═══════════════════════════════════════════ -->
+  <div id="content">
+
+    <!-- Topbar -->
+    <nav class="topbar">
+      <button id="sidebarToggle" class="btn btn-sm btn-outline-secondary me-3">
+        <i class="bi bi-list fs-5"></i>
+      </button>
+      <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+      <div class="topbar-right ms-auto d-flex align-items-center gap-3">
+        <div class="market-time">
+          <i class="bi bi-clock me-1"></i>
+          <span id="marketTime">--:--:--</span>
+          <span class="badge ms-2" id="marketBadge">--</span>
+        </div>
+        <div class="mode-badge">
+          <span class="badge bg-warning text-dark">
+            <i class="bi bi-shield-exclamation me-1"></i>PAPER
+          </span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Flash xabarlar -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="px-4 pt-3">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Sahifa kontenti -->
+    <main class="main-content">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>© 2024 IBKR Trading Bot &nbsp;|&nbsp; 
+        <span class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>
+          Faqat ta'lim maqsadida. Real savdoda o'z xatarlaringizni hisobga oling.
+        </span>
+      </span>
+    </footer>
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Socket.IO -->
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<!-- Custom JS -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Grafik — {{ symbol }}{% endblock %}
+{% block page_title %}<i class="bi bi-graph-up-arrow me-2"></i>Grafik — {{ symbol }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  #chartCanvas { width:100%; height:400px; }
+  .symbol-btn.active { background: var(--primary); color:#fff; border-color:var(--primary); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Aksiya tanlash -->
+<div class="card-panel mb-4">
+  <div class="panel-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+    <span class="text-muted me-2"><i class="bi bi-search me-1"></i>Aksiya:</span>
+    {% for s in ['AAPL','NVDA','TSLA','MSFT','AMD','META','GOOG','AMZN'] %}
+    <a href="{{ url_for('chart') }}?symbol={{ s }}"
+       class="btn btn-sm btn-outline-primary symbol-btn {{ 'active' if s == symbol }}">
+      {{ s }}
+    </a>
+    {% endfor %}
+    <form class="d-flex ms-auto gap-2" method="GET" action="{{ url_for('chart') }}">
+      <input type="text" name="symbol" class="form-control form-control-sm" placeholder="Boshqa aksiya..." style="width:140px;">
+      <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Grafik -->
+  <div class="col-xl-9">
+    <div class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-bar-chart-line me-2 text-primary"></i>
+          <span id="chartTitle">{{ symbol }} — 5 daqiqalik grafik</span>
+        </div>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary active" onclick="setTF('5m',this)">5m</button>
+          <button class="btn btn-outline-secondary"        onclick="setTF('15m',this)">15m</button>
+          <button class="btn btn-outline-secondary"        onclick="setTF('1h',this)">1H</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <canvas id="chartCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Indikatorlar -->
+  <div class="col-xl-3">
+    <div class="card-panel mb-4">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-activity me-2 text-success"></i>Indikatorlar
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="indicator-row">
+          <span class="ind-label">Narx</span>
+          <span class="ind-val fw-bold" id="indPrice">—</span>
+        </div>
+        <div class="indicator-row">
+          <span class="ind-label">EMA 9</span>
+          <span class="ind-val text-primary" id="indEma9">—</span>
+        </div>
+        <div class="indicator-row">
+          <span class="ind-label">EMA 21</span>
+          <span class="ind-val text-warning" id="indEma21">—</span>
+        </div>
+        <div class="indicator-row">
+          <span class="ind-label">RSI</span>
+          <span class="ind-val" id="indRsi">—</span>
+        </div>
+        <div class="indicator-row">
+          <span class="ind-label">Volume</span>
+          <span class="ind-val text-info" id="indVol">—</span>
+        </div>
+        <div class="indicator-row">
+          <span class="ind-label">Signal</span>
+          <span class="ind-val fw-bold" id="indSignal">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSI ko'rsatgich -->
+    <div class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-speedometer me-2 text-warning"></i>RSI Metr
+        </div>
+      </div>
+      <div class="panel-body text-center">
+        <div class="rsi-meter" id="rsiMeter">
+          <div class="rsi-needle" id="rsiNeedle" style="transform: rotate(-80deg)"></div>
+          <div class="rsi-val" id="rsiVal">—</div>
+        </div>
+        <div class="d-flex justify-content-between mt-1">
+          <small class="text-success">Oversold</small>
+          <small class="text-muted">Neytral</small>
+          <small class="text-danger">Overbought</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const RAW_DATA = {{ chart_data|safe }};
+const SYMBOL   = "{{ symbol }}";
+let myChart    = null;
+
+function buildChart(data) {
+  const labels = data.map(d => d.time);
+  const closes = data.map(d => d.close);
+  const ema9   = data.map(d => d.ema9);
+  const ema21  = data.map(d => d.ema21);
+  const vols   = data.map(d => d.vol);
+
+  const ctx = document.getElementById('chartCanvas').getContext('2d');
+  if (myChart) myChart.destroy();
+
+  myChart = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'line', label: 'Narx',
+          data: closes, borderColor: '#4f9cf9',
+          borderWidth: 2, pointRadius: 0, yAxisID: 'y', tension: 0.3,
+          fill: { target: 'origin', above: 'rgba(79,156,249,0.05)' }
+        },
+        {
+          type: 'line', label: 'EMA 9',
+          data: ema9, borderColor: '#f59e0b',
+          borderWidth: 1.5, pointRadius: 0, yAxisID: 'y', tension: 0.3,
+          borderDash: [4,3]
+        },
+        {
+          type: 'line', label: 'EMA 21',
+          data: ema21, borderColor: '#8b5cf6',
+          borderWidth: 1.5, pointRadius: 0, yAxisID: 'y', tension: 0.3,
+          borderDash: [4,3]
+        },
+        {
+          type: 'bar', label: 'Volume',
+          data: vols, backgroundColor: 'rgba(100,200,150,0.3)',
+          borderColor: 'rgba(100,200,150,0.5)', borderWidth: 1,
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#adb5bd', usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label + ': ' +
+              (ctx.dataset.yAxisID === 'y2'
+                ? (ctx.raw/1000).toFixed(0)+'K'
+                : '$'+ctx.raw.toFixed(2))
+          }
+        }
+      },
+      scales: {
+        x:  { ticks: { color:'#6c757d', maxTicksLimit:10 }, grid: { color:'rgba(255,255,255,0.05)' } },
+        y:  { position:'left',  ticks: { color:'#adb5bd', callback: v=>'$'+v }, grid: { color:'rgba(255,255,255,0.07)' } },
+        y2: { position:'right', ticks: { color:'#6c757d', callback: v=>(v/1000).toFixed(0)+'K' }, grid: { display:false } }
+      }
+    }
+  });
+
+  // Indikatorlarni yangilash
+  const last = data[data.length-1];
+  document.getElementById('indPrice').textContent = '$'+last.close.toFixed(2);
+  document.getElementById('indEma9').textContent  = '$'+last.ema9.toFixed(2);
+  document.getElementById('indEma21').textContent = '$'+last.ema21.toFixed(2);
+  document.getElementById('indVol').textContent   = (last.vol/1000).toFixed(0)+'K';
+
+  // Signal
+  const sig = last.ema9 > last.ema21 ? '📈 BUY' : '📉 SELL';
+  const sigEl = document.getElementById('indSignal');
+  sigEl.textContent  = sig;
+  sigEl.className    = 'ind-val fw-bold ' + (sig.includes('BUY') ? 'text-success' : 'text-danger');
+
+  // Demo RSI
+  const rsi = Math.random()*40+35;
+  document.getElementById('indRsi').textContent = rsi.toFixed(1);
+  document.getElementById('rsiVal').textContent = rsi.toFixed(1);
+  const angle = (rsi / 100) * 160 - 80;
+  document.getElementById('rsiNeedle').style.transform = `rotate(${angle}deg)`;
+}
+
+function setTF(tf, btn) {
+  document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Demo: qayta chizish
+  buildChart(RAW_DATA.map(d => ({...d, close: d.close + (Math.random()-0.5)*2})));
+}
+
+// Boshlang'ich chizish
+buildChart(RAW_DATA);
+
+// Har 10 sekundda yangilash
+setInterval(() => {
+  fetch('/api/chart/' + SYMBOL)
+    .then(r => r.json())
+    .then(data => buildChart(data))
+    .catch(()=>{});
+}, 10000);
+</script>
+{% endblock %}

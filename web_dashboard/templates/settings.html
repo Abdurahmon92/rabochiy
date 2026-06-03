@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Sozlamalar — IBKR Bot{% endblock %}
+{% block page_title %}<i class="bi bi-gear-fill me-2"></i>Sozlamalar{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('settings') }}">
+
+  <div class="row g-4">
+
+    <!-- ═══ IBKR Ulanish ═══ -->
+    <div class="col-xl-6">
+      <div class="card-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="bi bi-plug-fill me-2 text-primary"></i>IBKR Ulanish
+          </div>
+          <span class="badge bg-warning text-dark">PAPER MODE</span>
+        </div>
+        <div class="panel-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">IBKR Host</label>
+            <input type="text" class="form-control" value="{{ settings.ibkr_host }}" disabled>
+            <div class="form-text">Odatda 127.0.0.1 (localhost)</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">TWS Port</label>
+            <select name="ibkr_port" class="form-select">
+              <option value="7497" {{ 'selected' if settings.ibkr_port == 7497 }}>
+                7497 — Paper Trading (Xavfsiz) ✅
+              </option>
+              <option value="7496" {{ 'selected' if settings.ibkr_port == 7496 }}>
+                7496 — Live Trading (Real pul) ⚠️
+              </option>
+              <option value="4002" {{ 'selected' if settings.ibkr_port == 4002 }}>
+                4002 — IB Gateway (Paper)
+              </option>
+              <option value="4001" {{ 'selected' if settings.ibkr_port == 4001 }}>
+                4001 — IB Gateway (Live)
+              </option>
+            </select>
+          </div>
+
+          <!-- Ulanish holati -->
+          <div class="connection-status p-3 rounded">
+            <div class="d-flex align-items-center gap-2">
+              <span class="status-dot status-dot--red"></span>
+              <span class="fw-semibold">IBKR ga ulanilmagan</span>
+            </div>
+            <small class="text-muted d-block mt-1">
+              TWS yoki IB Gateway ni ishga tushiring va bot sozlamalarini tekshiring.
+            </small>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="testConnection()">
+              <i class="bi bi-wifi me-1"></i>Ulanishni Tekshir
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Hisob Sozlamalari ═══ -->
+    <div class="col-xl-6">
+      <div class="card-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="bi bi-wallet2 me-2 text-success"></i>Hisob Sozlamalari
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Depozit Miqdori ($)</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" name="account_size" class="form-control"
+                     value="{{ settings.account_size }}" min="1000" step="100">
+            </div>
+            <div class="form-text">Bot shu miqdorga asoslanib pozitsiya hisoblaydi</div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label fw-semibold">
+                Risk Foizi (%)
+                <span class="badge bg-danger ms-1">{{ settings.risk_percent }}%</span>
+              </label>
+              <input type="range" name="risk_percent" class="form-range" id="riskRange"
+                     value="{{ settings.risk_percent }}" min="0.5" max="3" step="0.5"
+                     oninput="document.getElementById('riskVal').textContent=this.value+'%'">
+              <div class="d-flex justify-content-between">
+                <small>0.5%</small>
+                <small class="fw-bold text-danger" id="riskVal">{{ settings.risk_percent }}%</small>
+                <small>3%</small>
+              </div>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label fw-semibold">
+                Risk/Reward
+                <span class="badge bg-success ms-1">1:{{ settings.reward_ratio }}</span>
+              </label>
+              <input type="range" name="reward_ratio" class="form-range"
+                     value="{{ settings.reward_ratio }}" min="1.5" max="4" step="0.5"
+                     oninput="document.getElementById('rrVal').textContent='1:'+this.value">
+              <div class="d-flex justify-content-between">
+                <small>1:1.5</small>
+                <small class="fw-bold text-success" id="rrVal">1:{{ settings.reward_ratio }}</small>
+                <small>1:4</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Risk Menejment ═══ -->
+    <div class="col-xl-6">
+      <div class="card-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="bi bi-shield-check me-2 text-warning"></i>Risk Menejment
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label fw-semibold">Qisman Yopish (%)</label>
+              <div class="input-group">
+                <input type="number" name="partial_close" class="form-control"
+                       value="{{ settings.partial_close }}" min="25" max="75" step="25">
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text">1:1 ga yetganda yopiladigan %</div>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label fw-semibold">Trailing Stop (%)</label>
+              <div class="input-group">
+                <input type="number" name="trailing_stop" class="form-control"
+                       value="{{ settings.trailing_stop }}" min="0.5" max="3" step="0.5">
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text">Narxdan uzoqlik</div>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label fw-semibold">Max Pozitsiya Soni</label>
+              <input type="number" name="max_positions" class="form-control"
+                     value="{{ settings.max_positions }}" min="1" max="20">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label fw-semibold">Kunlik Max Zarar (%)</label>
+              <div class="input-group">
+                <input type="number" name="max_daily_loss" class="form-control"
+                       value="{{ settings.max_daily_loss }}" min="1" max="10" step="0.5">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Skaner Sozlamalari ═══ -->
+    <div class="col-xl-6">
+      <div class="card-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <i class="bi bi-search me-2 text-info"></i>Skaner Sozlamalari
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Skaner Intervali (sekund)</label>
+            <select name="scan_interval" class="form-select">
+              <option value="60"  {{ 'selected' if settings.scan_interval == 60  }}>1 daqiqa</option>
+              <option value="180" {{ 'selected' if settings.scan_interval == 180 }}>3 daqiqa</option>
+              <option value="300" {{ 'selected' if settings.scan_interval == 300 }}>5 daqiqa ✅</option>
+              <option value="600" {{ 'selected' if settings.scan_interval == 600 }}>10 daqiqa</option>
+            </select>
+          </div>
+
+          <!-- Joriy sozlamalar xulosasi -->
+          <div class="settings-summary mt-3">
+            <div class="summary-title">📋 Joriy Sozlamalar Xulosasi</div>
+            <div class="summary-grid">
+              <div>Depozit</div>      <div class="fw-bold">${{ "{:,}".format(settings.account_size) }}</div>
+              <div>Risk</div>         <div class="fw-bold text-danger">{{ settings.risk_percent }}%</div>
+              <div>R/R nisbati</div>  <div class="fw-bold text-success">1:{{ settings.reward_ratio }}</div>
+              <div>50% yopish</div>   <div class="fw-bold">{{ settings.partial_close }}%</div>
+              <div>Trailing</div>     <div class="fw-bold">{{ settings.trailing_stop }}%</div>
+              <div>Max zarar</div>    <div class="fw-bold text-danger">{{ settings.max_daily_loss }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+
+  <!-- Saqlash tugmasi -->
+  <div class="d-flex justify-content-end gap-3 mt-4 mb-4">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary px-4">
+      <i class="bi bi-arrow-left me-2"></i>Bekor qilish
+    </a>
+    <button type="submit" class="btn btn-primary px-5">
+      <i class="bi bi-floppy me-2"></i>Saqlash
+    </button>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testConnection() {
+  fetch('/api/bot/status')
+    .then(r => r.json())
+    .then(d => {
+      alert('Server ishlayapti ✅\nBot holati: ' + (d.running ? 'RUNNING 🟢' : 'STOPPED 🔴'));
+    })
+    .catch(() => alert('Server bilan bog\'lanishda xato ❌'));
+}
+</script>
+{% endblock %}

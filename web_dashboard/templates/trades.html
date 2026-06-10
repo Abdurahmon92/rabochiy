@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Savdolar — IBKR Bot{% endblock %}
+{% block page_title %}<i class="bi bi-clock-history me-2"></i>Savdolar Tarixi{% endblock %}
+
+{% block content %}
+
+<!-- Statistika qatori -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="mini-stat bg-success bg-opacity-10 border border-success border-opacity-25">
+      <i class="bi bi-check-circle-fill text-success fs-4"></i>
+      <div>
+        <div class="mini-stat-val text-success" id="totalWins">—</div>
+        <div class="mini-stat-label">Yutgan</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="mini-stat bg-danger bg-opacity-10 border border-danger border-opacity-25">
+      <i class="bi bi-x-circle-fill text-danger fs-4"></i>
+      <div>
+        <div class="mini-stat-val text-danger" id="totalLosses">—</div>
+        <div class="mini-stat-label">Yutqazgan</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="mini-stat bg-primary bg-opacity-10 border border-primary border-opacity-25">
+      <i class="bi bi-trophy-fill text-primary fs-4"></i>
+      <div>
+        <div class="mini-stat-val text-primary" id="winRateStat">—</div>
+        <div class="mini-stat-label">Win Rate</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="mini-stat bg-warning bg-opacity-10 border border-warning border-opacity-25">
+      <i class="bi bi-cash-stack text-warning fs-4"></i>
+      <div>
+        <div class="mini-stat-val" id="totalPnlStat">—</div>
+        <div class="mini-stat-label">Jami P&L</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Savdolar Jadvali -->
+<div class="card-panel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <i class="bi bi-table me-2 text-primary"></i>Barcha Savdolar
+    </div>
+    <!-- Filter tugmalari -->
+    <div class="btn-group btn-group-sm" role="group" id="filterBtns">
+      <button type="button" class="btn btn-outline-secondary active" onclick="filterTrades('all', this)">Barchasi</button>
+      <button type="button" class="btn btn-outline-success"          onclick="filterTrades('BUY', this)">BUY</button>
+      <button type="button" class="btn btn-outline-danger"           onclick="filterTrades('SELL', this)">SELL</button>
+      <button type="button" class="btn btn-outline-warning"          onclick="filterTrades('PARTIAL_SELL', this)">50%</button>
+    </div>
+  </div>
+
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="tradesTable">
+        <thead>
+          <tr>
+            <th><i class="bi bi-clock me-1"></i>Vaqt</th>
+            <th>Harakat</th>
+            <th>Aksiya</th>
+            <th>Miqdor</th>
+            <th>Narx</th>
+            <th>Stop-Loss</th>
+            <th>Take-Profit</th>
+            <th>Sabab</th>
+            <th>P&L</th>
+          </tr>
+        </thead>
+        <tbody id="tradesBody">
+          {% for t in trades %}
+          <tr data-action="{{ t.action if t.action else '' }}">
+            <td><small class="text-muted">{{ t.get('Vaqt', t.get('time','—')) }}</small></td>
+            <td>
+              {% set act = t.get('Harakat', t.get('action','')) %}
+              {% if act == 'BUY' %}
+                <span class="badge bg-success">📈 BUY</span>
+              {% elif act == 'SELL' %}
+                <span class="badge bg-danger">📉 SELL</span>
+              {% elif act == 'PARTIAL_SELL' %}
+                <span class="badge bg-warning text-dark">✂️ 50%</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ act }}</span>
+              {% endif %}
+            </td>
+            <td class="fw-bold">
+              <a href="{{ url_for('chart') }}?symbol={{ t.get('Aksiya', t.get('symbol','')) }}" class="text-decoration-none">
+                {{ t.get('Aksiya', t.get('symbol','—')) }}
+              </a>
+            </td>
+            <td>{{ t.get('Miqdor', t.get('qty','—')) }}</td>
+            <td>${{ "{:.2f}".format(t.get('Narx', t.get('price', 0))|float) }}</td>
+            <td class="text-danger">${{ "{:.2f}".format(t.get('Stop-Loss', t.get('sl', 0))|float) }}</td>
+            <td class="text-success">${{ "{:.2f}".format(t.get('Take-Profit', t.get('tp', 0))|float) }}</td>
+            <td><small class="text-muted">{{ t.get('Sabab', t.get('reason','—'))[:40] }}</small></td>
+            <td>
+              {% set pnl = t.get('pnl', None) %}
+              {% if pnl is not none %}
+                <span class="{{ 'text-success' if pnl|float >= 0 else 'text-danger' }} fw-bold">
+                  {{ "+" if pnl|float >= 0 else "" }}${{ "{:.2f}".format(pnl|float) }}
+                </span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="text-center py-5">
+              <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+              <span class="text-muted">Hozircha savdo yo'q</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Jadval statistikasini hisoblash
+document.addEventListener('DOMContentLoaded', () => {
+  const rows   = document.querySelectorAll('#tradesBody tr[data-action]');
+  let wins = 0, losses = 0, totalPnl = 0;
+
+  rows.forEach(row => {
+    const act = row.dataset.action;
+    const pnlEl = row.querySelector('td:last-child span');
+    if (pnlEl && pnlEl.textContent.trim() !== '—') {
+      const val = parseFloat(pnlEl.textContent.replace(/[$+]/g,''));
+      if (!isNaN(val)) {
+        totalPnl += val;
+        if (val >= 0) wins++; else losses++;
+      }
+    }
+  });
+
+  const total = wins + losses;
+  document.getElementById('totalWins').textContent    = wins;
+  document.getElementById('totalLosses').textContent  = losses;
+  document.getElementById('winRateStat').textContent  = total ? (wins/total*100).toFixed(1)+'%' : '—';
+  const pnlEl = document.getElementById('totalPnlStat');
+  pnlEl.textContent  = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2);
+  pnlEl.className    = 'mini-stat-val ' + (totalPnl >= 0 ? 'text-success' : 'text-danger');
+});
+
+// Filtrlash
+function filterTrades(type, btn) {
+  document.querySelectorAll('#filterBtns .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#tradesBody tr[data-action]').forEach(row => {
+    row.style.display = (type === 'all' || row.dataset.action === type) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

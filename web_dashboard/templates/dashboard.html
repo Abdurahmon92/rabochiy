@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — IBKR Bot{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2"></i>Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ═══ STAT KARTOCHKALAR ═══ -->
+<div class="row g-4 mb-4">
+
+  <!-- Hisob qiymati -->
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card stat-card--blue">
+      <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+      <div class="stat-body">
+        <div class="stat-label">Hisob Qiymati</div>
+        <div class="stat-value" id="accountValue">
+          ${{ "{:,.2f}".format(stats.account_value) }}
+        </div>
+        <div class="stat-change text-success">
+          <i class="bi bi-arrow-up-short"></i> Yangilandi
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kunlik P&L -->
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card stat-card--{{ 'green' if stats.daily_pnl >= 0 else 'red' }}">
+      <div class="stat-icon"><i class="bi bi-graph-up"></i></div>
+      <div class="stat-body">
+        <div class="stat-label">Kunlik P&L</div>
+        <div class="stat-value {{ 'text-success' if stats.daily_pnl >= 0 else 'text-danger' }}" id="dailyPnl">
+          {{ "+" if stats.daily_pnl >= 0 else "" }}${{ "{:,.2f}".format(stats.daily_pnl) }}
+        </div>
+        <div class="stat-change {{ 'text-success' if stats.daily_pnl_pct >= 0 else 'text-danger' }}">
+          {{ "+" if stats.daily_pnl_pct >= 0 else "" }}{{ stats.daily_pnl_pct }}%
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Win Rate -->
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card stat-card--purple">
+      <div class="stat-icon"><i class="bi bi-trophy"></i></div>
+      <div class="stat-body">
+        <div class="stat-label">Win Rate</div>
+        <div class="stat-value" id="winRate">{{ stats.win_rate }}%</div>
+        <div class="stat-change text-muted">
+          {{ stats.win_trades }}W / {{ stats.loss_trades }}L
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ochiq Pozitsiyalar -->
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card stat-card--orange">
+      <div class="stat-icon"><i class="bi bi-layers"></i></div>
+      <div class="stat-body">
+        <div class="stat-label">Ochiq Pozitsiyalar</div>
+        <div class="stat-value" id="openPositions">{{ stats.open_positions }}</div>
+        <div class="stat-change text-muted">
+          Jami savdo: {{ stats.total_trades }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ POZITSIYALAR + LOG ═══ -->
+<div class="row g-4 mb-4">
+
+  <!-- Ochiq Pozitsiyalar Jadvali -->
+  <div class="col-xl-8">
+    <div class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-layers me-2 text-primary"></i>Ochiq Pozitsiyalar
+        </div>
+        <span class="badge bg-primary rounded-pill" id="posCount">
+          {{ positions|length }}
+        </span>
+      </div>
+      <div class="panel-body p-0">
+        {% if positions %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0" id="positionsTable">
+            <thead>
+              <tr>
+                <th>Aksiya</th>
+                <th>Miqdor</th>
+                <th>Kirish</th>
+                <th>Joriy</th>
+                <th>P&L</th>
+                <th>Stop</th>
+                <th>Target</th>
+                <th>Holat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pos in positions %}
+              <tr class="{{ 'table-success' if pos.pnl >= 0 else 'table-danger' }} bg-opacity-10">
+                <td>
+                  <a href="{{ url_for('chart') }}?symbol={{ pos.symbol }}" class="fw-bold text-decoration-none">
+                    {{ pos.symbol }}
+                  </a>
+                </td>
+                <td>{{ pos.qty }}</td>
+                <td>${{ "{:.2f}".format(pos.entry) }}</td>
+                <td class="fw-semibold">${{ "{:.2f}".format(pos.current) }}</td>
+                <td class="{{ 'text-success' if pos.pnl >= 0 else 'text-danger' }} fw-bold">
+                  {{ "+" if pos.pnl >= 0 else "" }}${{ "{:.2f}".format(pos.pnl) }}
+                  <small>({{ "+" if pos.pnl_pct >= 0 else "" }}{{ pos.pnl_pct }}%)</small>
+                </td>
+                <td class="text-danger">${{ "{:.2f}".format(pos.stop) }}</td>
+                <td class="text-success">${{ "{:.2f}".format(pos.target) }}</td>
+                <td>
+                  {% if pos.partial_done %}
+                    <span class="badge bg-success">✂️ 50% yopildi</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark">⏳ Kutilmoqda</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <i class="bi bi-inbox fs-1 text-muted"></i>
+          <p class="text-muted mt-2">Hozircha ochiq pozitsiya yo'q</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Bot Loglari -->
+  <div class="col-xl-4">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-terminal me-2 text-success"></i>Bot Loglari
+        </div>
+        <span class="badge bg-success rounded-pill blink-dot">LIVE</span>
+      </div>
+      <div class="panel-body p-0">
+        <div class="log-container" id="logContainer">
+          {% for log in logs %}
+            <div class="log-line {{ 'log-buy' if 'BUY' in log else ('log-sell' if 'SELL' in log or 'yopildi' in log else ('log-error' if 'xato' in log or '❌' in log else '')) }}">
+              {{ log }}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PROGRESS BARS + MINI STATISTIKA ═══ -->
+<div class="row g-4">
+
+  <!-- Risk Darajasi -->
+  <div class="col-xl-4">
+    <div class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-shield-check me-2 text-warning"></i>Risk Darajasi
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1">
+            <small>Kunlik Zarar</small>
+            <small class="text-danger">0.8% / 3%</small>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-danger" style="width: 27%"></div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1">
+            <small>Pozitsiya Soni</small>
+            <small class="text-primary">{{ stats.open_positions }} / 5</small>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-primary" style="width: {{ stats.open_positions * 20 }}%"></div>
+          </div>
+        </div>
+        <div class="mb-0">
+          <div class="d-flex justify-content-between mb-1">
+            <small>Kapital Ishlatilishi</small>
+            <small class="text-success">32%</small>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-success" style="width: 32%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Savdo Statistikasi -->
+  <div class="col-xl-4">
+    <div class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-bar-chart me-2 text-info"></i>Bugungi Statistika
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="stat-row">
+          <span><i class="bi bi-check-circle text-success me-2"></i>Yutgan savdolar</span>
+          <span class="fw-bold text-success">{{ stats.win_trades }}</span>
+        </div>
+        <div class="stat-row">
+          <span><i class="bi bi-x-circle text-danger me-2"></i>Yutqazgan savdolar</span>
+          <span class="fw-bold text-danger">{{ stats.loss_trades }}</span>
+        </div>
+        <div class="stat-row">
+          <span><i class="bi bi-hash text-primary me-2"></i>Jami savdolar</span>
+          <span class="fw-bold">{{ stats.total_trades }}</span>
+        </div>
+        <div class="stat-row">
+          <span><i class="bi bi-search text-warning me-2"></i>So'nggi skaner</span>
+          <span class="fw-bold text-muted" id="lastScan">{{ stats.last_scan }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tezkor Harakatlar -->
+  <div class="col-xl-4">
+    <div class="card-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="bi bi-lightning me-2 text-warning"></i>Tezkor Harakatlar
+        </div>
+      </div>
+      <div class="panel-body d-grid gap-2">
+        <a href="{{ url_for('chart') }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-graph-up me-2"></i>Grafikni Ko'rish
+        </a>
+        <a href="{{ url_for('trades') }}" class="btn btn-outline-info btn-sm">
+          <i class="bi bi-clock-history me-2"></i>Savdolar Tarixi
+        </a>
+        <a href="{{ url_for('settings') }}" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-gear me-2"></i>Sozlamalar
+        </a>
+        <button class="btn btn-outline-danger btn-sm" onclick="closeAllPositions()">
+          <i class="bi bi-x-circle me-2"></i>Barcha Pozitsiyalarni Yop
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
